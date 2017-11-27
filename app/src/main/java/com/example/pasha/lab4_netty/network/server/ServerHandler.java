@@ -10,7 +10,8 @@ public class ServerHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        ctx.writeAndFlush(msg);
+        String message = (String) msg;
+        ctx.writeAndFlush("Echo: " + message);
     }
 
     @Override

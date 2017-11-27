@@ -1,7 +1,10 @@
 package com.example.pasha.lab4_netty;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
@@ -14,45 +17,67 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import com.example.pasha.lab4_netty.network.client.Client;
+import butterknife.BindView;
+import butterknife.ButterKnife;
+import butterknife.OnClick;
 
-/**
- * Stores references to {@link View} elements, creates {@link ServerService} which
- * runs Server in new thread
- */
 public class MainActivity extends AppCompatActivity {
 
-    private Button sendButton;
-    private EditText editMessage;
-    private TextView textViewMessages;
-    private Client client;
+    /**
+     * Key of message to ClientService
+     */
+    final static String KEY_MESSAGE_SERVICE = "MESSAGE_SERVICE";
+
+    /**
+     * Action to send message to ClientService
+     */
+    final static String ACTION_SEND_MESSAGE_SERVICE = "SEND_MESSAGE_SERVICE";
+
+    @BindView(R.id.button)
+    Button sendButton;
+
+    @BindView(R.id.editText)
+    EditText editMessage;
+
+    @BindView(R.id.textView)
+    TextView textViewMessages;
+
+    MainActivityReceiver receiver;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        ButterKnife.bind(this);
 
+        // Check permissions and start server and client
         checkPermissions();
         startServer();
-        findViews();
+        startClient();
 
         textViewMessages.setMovementMethod(new ScrollingMovementMethod());
+    }
 
-        sendButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
+    @Override
+    protected void onStart() {
+        super.onStart();
+        createReceiver();
+    }
 
-                if (client == null) {
-                    client = new Client();
-                }
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(receiver);
+    }
 
-                String message = editMessage.getText().toString();
-                if (!"".equals(message)) {
-                    client.sendMessage(message);
-                    textViewMessages.append("\n" + client.getResponse());
-                }
-            }
-        });
+    @OnClick(R.id.button)
+    public void onClick(View view) {
+        String message = editMessage.getText().toString();
+
+        Intent intent = new Intent();
+        intent.setAction(ACTION_SEND_MESSAGE_SERVICE);
+        intent.putExtra(KEY_MESSAGE_SERVICE, message);
+        sendBroadcast(intent);
     }
 
     private void checkPermissions() {
@@ -72,9 +97,31 @@ public class MainActivity extends AppCompatActivity {
         startService(intent);
     }
 
-    private void findViews() {
-        sendButton = findViewById(R.id.button);
-        editMessage = findViewById(R.id.editText);
-        textViewMessages = findViewById(R.id.textView);
+    private void startClient() {
+        Intent intent = new Intent(this, ClientService.class);
+        startService(intent);
     }
+
+    private class MainActivityReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+
+            String action = intent.getAction();
+
+            if (ClientService.ACTION_SEND_MESSAGE_ACTIVITY.equals(action)) {
+                String message = intent.getStringExtra(ClientService.KEY_MESSAGE_ACTIVITY);
+                textViewMessages.append("\n" + message);
+            }
+        }
+    }
+
+    private void createReceiver() {
+        receiver = new MainActivityReceiver();
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(ClientService.ACTION_SEND_MESSAGE_ACTIVITY);
+        registerReceiver(receiver, intentFilter);
+    }
+
+
 }
